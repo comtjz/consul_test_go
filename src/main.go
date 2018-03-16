@@ -5,13 +5,13 @@ import (
 	"log"
 	"strings"
 	"flag"
+	"strconv"
 )
 
 func main() {
-	var consul_addr, monitor_addr, service_name, service_ip string
+	var consul_addr, service_name, service_ip string
 	var service_port int
 	flag.StringVar(&consul_addr, "consul_addr", "localhost:8500", "host:port of the consul")
-	flag.StringVar(&monitor_addr, "monitor_addr", "127.0.0.1:54321", "host:port of the service monitor")
 	flag.StringVar(&service_name, "service_name", "worker1", "name of the service")
 	flag.StringVar(&service_ip, "service_ip", "127.0.0.1", "service serve ip")
 	flag.IntVar(&service_port, "service_port", 10086, "service serve port")
@@ -22,8 +22,45 @@ func main() {
 	//DoDegisterService(consul_addr, "")
 }
 
-func RegisterService(consul_addr string)
+/**
+ * 注册服务
+ * client： consul agent客户端
+ * service_name: 服务的逻辑名称
+ * service_port: 注册服务的端口
+ * service_addr: 注册服务的地址
+ * service_checks: 注册服务的检查
+ * 返回值： 注册服务的ID
+ */
+func RegisterService(client consulapi.Client, service_name string,
+	service_port int, service_addr string, service_checks consulapi.AgentServiceChecks) (string, error) {
+	// 根据Service的Name，addr，port生成id
+	// consul要求某一consul agent上注册的服务的id必须是不同的（不同Name下的id也不能相同）
+	service_id := service_name + "-" + service_addr + "-" + strconv.FormatInt(int64(service_port),10)
 
+	service := &consulapi.AgentServiceRegistration{
+		ID:      service_id,
+		Name:    service_name,
+		Port:    service_port,
+		Address: service_addr,
+		Checks:  service_checks,
+	}
+
+	if err := client.Agent().ServiceRegister(service); err != nil {
+		return "", err
+	}
+
+	return service_id, nil
+}
+
+/**
+ * 根据Service的ID注销服务
+ * client: consul agent的客户端
+ * service_id: 服务注册的ID
+ *
+ */
+func DeregisterService(client consulapi.Client, service_id string) {
+
+}
 func DoDegisterService(consul_addr string, service_id string) {
 	consulConf := consulapi.DefaultConfig()
 	consulConf.Address = consul_addr
